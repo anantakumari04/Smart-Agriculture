@@ -18,6 +18,9 @@ mongoose.connect(process.env.MONGODB_URI)
   .catch(err => console.log('MongoDB connection error:', err));
 
 // Routes
+app.get('/', (req, res) => {
+  res.send('Backend is running successfully');
+});
 app.use('/api/auth', require('./routes/authRoutes'));
 app.use('/api/climate', require('./routes/climateRoutes'));
 app.use('/api/admin', require('./routes/adminRoutes'));
@@ -34,3 +37,4 @@ const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
+
