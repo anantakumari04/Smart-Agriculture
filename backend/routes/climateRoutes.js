@@ -165,7 +165,8 @@ Return only JSON. Do not include any explanation outside the JSON array.`;
         },
         {
           headers: {
-            'Content-Type': 'application/json'
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${process.env.GEMINI_API_KEY}`
           }
         }
       );
@@ -192,7 +193,7 @@ Return only JSON. Do not include any explanation outside the JSON array.`;
         source: 'gemini'
       });
     } catch (error) {
-      console.error('Gemini request failed:', error.message || error);
+      console.error('Gemini request failed:', error.response?.status, error.response?.data || error.message || error);
       return res.status(200).json({
         success: true,
         data: latestData,
@@ -202,7 +203,17 @@ Return only JSON. Do not include any explanation outside the JSON array.`;
       });
     }
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    console.error('AI recommendation route failed:', error.response?.status, error.response?.data || error.message || error);
+    if (latestData) {
+      return res.status(200).json({
+        success: true,
+        data: latestData,
+        recommendations: generateFallbackRecommendations(latestData),
+        source: 'fallback',
+        message: 'Fallback recommendations returned after server error'
+      });
+    }
+    res.status(500).json({ success: false, message: error.message || 'Unknown error' });
   }
 });
 
@@ -286,25 +297,29 @@ async function checkThresholds(farm, climateData) {
 
 function generateFallbackRecommendations(data) {
   const recommendations = [];
+  const temperature = Number(data?.temperature ?? 0);
+  const humidity = Number(data?.humidity ?? 0);
+  const soilMoisture = Number(data?.soilMoisture ?? 0);
+  const airQuality = String(data?.airQuality ?? 'Good');
 
-  if (data.temperature > 35) {
+  if (temperature > 35) {
     recommendations.push({
       id: 1,
       icon: '🌡️',
       title: 'High Temperature Alert',
       recommendation: 'High temperature → Irrigation needed',
       severity: 'critical',
-      description: `Temperature is ${data.temperature.toFixed(1)}°C. Provide immediate irrigation to prevent crop stress and heat damage.`,
+      description: `Temperature is ${temperature.toFixed(1)}°C. Provide immediate irrigation to prevent crop stress and heat damage.`,
       action: 'Increase watering frequency'
     });
-  } else if (data.temperature > 30) {
+  } else if (temperature > 30) {
     recommendations.push({
       id: 2,
       icon: '🌡️',
       title: 'Moderate Temperature',
       recommendation: 'Monitor temperature closely',
       severity: 'warning',
-      description: `Temperature is ${data.temperature.toFixed(1)}°C. Consider irrigation if needed.`,
+      description: `Temperature is ${temperature.toFixed(1)}°C. Consider irrigation if needed.`,
       action: 'Regular watering schedule'
     });
   }

@@ -9,6 +9,7 @@ function AIRecommendations({ user }) {
   const [selectedFarm, setSelectedFarm] = useState(null);
   const [climateData, setClimateData] = useState(null);
   const [recommendations, setRecommendations] = useState([]);
+  const [errorMessage, setErrorMessage] = useState('');
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -32,14 +33,19 @@ function AIRecommendations({ user }) {
   const generateRecommendations = async (farmId) => {
     try {
       setLoading(true);
+      setErrorMessage('');
       const response = await getAiRecommendations(farmId);
       if (response.data.success) {
         const data = response.data.data;
         setClimateData(data);
         setRecommendations(response.data.recommendations || []);
+        if (response.data.message) {
+          setErrorMessage(response.data.message);
+        }
       }
     } catch (error) {
       console.error('Error fetching AI recommendations:', error);
+      setErrorMessage(error.response?.data?.message || 'Failed to fetch AI recommendations.');
     } finally {
       setLoading(false);
     }
@@ -289,6 +295,19 @@ function AIRecommendations({ user }) {
           </select>
         )}
       </div>
+
+      {selectedFarm && errorMessage && (
+        <div style={{
+          margin: '2rem',
+          padding: '1rem 2rem',
+          background: '#fdecea',
+          color: '#c0392b',
+          borderRadius: '8px',
+          border: '1px solid #f5c6cb'
+        }}>
+          {errorMessage}
+        </div>
+      )}
 
       {/* Recommendations Section */}
       {selectedFarm && recommendations.length > 0 && (
