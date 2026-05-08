@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import '../styles/navbar.css';
 
 function Navbar({ user, onLogout }) {
@@ -19,12 +19,12 @@ function Navbar({ user, onLogout }) {
       </div>
 
       <div className="navbar-nav">
-        <a href="/dashboard">🏠 Home</a>
-        <a href="/dashboard">📊 Dashboard</a>
-        <a href="/history">📈 History</a>
-        <a href="/alerts">🔔 Alerts</a>
-        <a href="/ai-recommendations">🤖 AI Recommendations</a>
-        {user && user.role === 'admin' && <a href="/admin">⚙️ Admin</a>}
+        <Link to="/dashboard">🏠 Home</Link>
+        <Link to="/dashboard">📊 Dashboard</Link>
+        <Link to="/history">📈 History</Link>
+        <Link to="/alerts">🔔 Alerts</Link>
+        <Link to="/ai-recommendations">🤖 AI Recommendations</Link>
+        {user && user.role === 'admin' && <Link to="/admin">⚙️ Admin</Link>}
       </div>
 
       <div className="navbar-user-menu">
@@ -34,7 +34,7 @@ function Navbar({ user, onLogout }) {
 
         {showDropdown && (
           <div className="navbar-dropdown">
-            <a href="/dashboard">Profile</a>
+            <Link to="/dashboard">Profile</Link>
             <button onClick={handleLogout}>Logout</button>
           </div>
         )}
