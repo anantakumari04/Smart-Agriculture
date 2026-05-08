@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # Smart Agriculture - Climate Monitoring System
 
 A full-stack automated climate monitoring system for smart agriculture built with **Vite + React (JSX)**, **Node.js + Express.js**, and **MongoDB**.
@@ -262,3 +263,6 @@ For issues or questions, please create an issue in the repository.
 ---
 
 **Built with ❤️ for Smart Agriculture**
+=======
+# Smart-Agriculture
+>>>>>>> f2e27a2032452f8749ea3ae4cceb925e758329ef
