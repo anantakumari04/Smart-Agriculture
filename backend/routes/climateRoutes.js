@@ -132,7 +132,13 @@ router.get('/recommendations/:farmId', protect, async (req, res) => {
     }
 
     if (!process.env.GEMINI_API_KEY) {
-      return res.status(500).json({ success: false, message: 'Gemini API key is not configured' });
+      console.warn('Gemini API key is not configured. Returning fallback recommendations.');
+      return res.status(200).json({
+        success: true,
+        data: latestData,
+        recommendations: generateFallbackRecommendations(latestData),
+        source: 'fallback'
+      });
     }
 
     const prompt = `You are an agricultural AI assistant. Analyze the climate data below and return an array of practical farming recommendations in valid JSON. Each recommendation must include id, icon, title, recommendation, severity, description, and action. Use severity values critical, warning, or optimal.
@@ -147,44 +153,54 @@ Climate data:
 
 Return only JSON. Do not include any explanation outside the JSON array.`;
 
-    const aiResponse = await axios.post(
-      `https://generativelanguage.googleapis.com/v1beta2/models/gemini-1.5-mini:generateText?key=${process.env.GEMINI_API_KEY}`,
-      {
-        prompt: {
-          text: prompt
-        },
-        temperature: 0.2,
-        maxOutputTokens: 450
-      },
-      {
-        headers: {
-          'Content-Type': 'application/json'
-        }
-      }
-    );
-
-    const text = aiResponse.data?.candidates?.[0]?.content || '';
-    let recommendations = [];
-
     try {
-      recommendations = JSON.parse(text);
-    } catch (parseError) {
-      return res.status(500).json({
-        success: false,
-        message: 'Gemini response could not be parsed as JSON',
-        rawResponse: text
+      const aiResponse = await axios.post(
+        `https://generativelanguage.googleapis.com/v1beta2/models/gemini-1.5-mini:generateText?key=${process.env.GEMINI_API_KEY}`,
+        {
+          prompt: {
+            text: prompt
+          },
+          temperature: 0.2,
+          maxOutputTokens: 450
+        },
+        {
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+
+      const text = aiResponse.data?.candidates?.[0]?.content || '';
+      let recommendations = [];
+
+      try {
+        recommendations = JSON.parse(text);
+      } catch (parseError) {
+        console.warn('Gemini response parse error, using fallback. Response text:', text);
+        recommendations = generateFallbackRecommendations(latestData);
+      }
+
+      if (!Array.isArray(recommendations)) {
+        console.warn('Gemini response did not return an array, using fallback. Raw response:', text);
+        recommendations = generateFallbackRecommendations(latestData);
+      }
+
+      return res.status(200).json({
+        success: true,
+        data: latestData,
+        recommendations,
+        source: 'gemini'
+      });
+    } catch (error) {
+      console.error('Gemini request failed:', error.message || error);
+      return res.status(200).json({
+        success: true,
+        data: latestData,
+        recommendations: generateFallbackRecommendations(latestData),
+        source: 'fallback',
+        message: 'Gemini request failed, returned fallback recommendations'
       });
     }
-
-    if (!Array.isArray(recommendations)) {
-      return res.status(500).json({
-        success: false,
-        message: 'Gemini response did not return an array',
-        rawResponse: text
-      });
-    }
-
-    res.status(200).json({ success: true, data: latestData, recommendations });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
@@ -266,6 +282,133 @@ async function checkThresholds(farm, climateData) {
       threshold: thresholds.maxHumidity
     });
   }
+}
+
+function generateFallbackRecommendations(data) {
+  const recommendations = [];
+
+  if (data.temperature > 35) {
+    recommendations.push({
+      id: 1,
+      icon: '🌡️',
+      title: 'High Temperature Alert',
+      recommendation: 'High temperature → Irrigation needed',
+      severity: 'critical',
+      description: `Temperature is ${data.temperature.toFixed(1)}°C. Provide immediate irrigation to prevent crop stress and heat damage.`,
+      action: 'Increase watering frequency'
+    });
+  } else if (data.temperature > 30) {
+    recommendations.push({
+      id: 2,
+      icon: '🌡️',
+      title: 'Moderate Temperature',
+      recommendation: 'Monitor temperature closely',
+      severity: 'warning',
+      description: `Temperature is ${data.temperature.toFixed(1)}°C. Consider irrigation if needed.`,
+      action: 'Regular watering schedule'
+    });
+  }
+
+  if (data.humidity < 30) {
+    recommendations.push({
+      id: 3,
+      icon: '💧',
+      title: 'Low Humidity Alert',
+      recommendation: 'Water your crops today',
+      severity: 'critical',
+      description: `Humidity is only ${data.humidity.toFixed(1)}%. This dry condition can stress plants.`,
+      action: 'Increase irrigation and mulching'
+    });
+  } else if (data.humidity > 80) {
+    recommendations.push({
+      id: 4,
+      icon: '💧',
+      title: 'High Humidity Alert',
+      recommendation: 'Risk of fungal diseases',
+      severity: 'warning',
+      description: `Humidity is ${data.humidity.toFixed(1)}%. High humidity increases disease risk.`,
+      action: 'Ensure proper ventilation and drainage'
+    });
+  } else {
+    recommendations.push({
+      id: 5,
+      icon: '💧',
+      title: 'Humidity Optimal',
+      recommendation: 'Humidity levels are good',
+      severity: 'optimal',
+      description: `Humidity is ${data.humidity.toFixed(1)}%. Conditions are favorable for crop growth.`,
+      action: 'Continue regular monitoring'
+    });
+  }
+
+  if (data.soilMoisture < 20) {
+    recommendations.push({
+      id: 6,
+      icon: '🌱',
+      title: 'Low Soil Moisture',
+      recommendation: 'Irrigation required immediately',
+      severity: 'critical',
+      description: `Soil moisture is only ${data.soilMoisture.toFixed(1)}%. Plants need water urgently.`,
+      action: 'Start deep watering immediately'
+    });
+  } else if (data.soilMoisture > 70) {
+    recommendations.push({
+      id: 7,
+      icon: '🌱',
+      title: 'High Soil Moisture',
+      recommendation: 'Risk of waterlogging',
+      severity: 'warning',
+      description: `Soil moisture is ${data.soilMoisture.toFixed(1)}%. Risk of root rot and fungal diseases.`,
+      action: 'Improve drainage, reduce watering'
+    });
+  } else {
+    recommendations.push({
+      id: 8,
+      icon: '🌱',
+      title: 'Soil Moisture Optimal',
+      recommendation: 'Soil conditions are ideal',
+      severity: 'optimal',
+      description: `Soil moisture is ${data.soilMoisture.toFixed(1)}%. Perfect conditions for crop growth.`,
+      action: 'Maintain current watering schedule'
+    });
+  }
+
+  if (data.airQuality === 'Poor' || data.airQuality === 'poor') {
+    recommendations.push({
+      id: 9,
+      icon: '💨',
+      title: 'Poor Air Quality',
+      recommendation: 'Check for pollution or stagnant air',
+      severity: 'warning',
+      description: 'Air quality is poor. This may affect crop photosynthesis and growth.',
+      action: 'Ensure adequate air circulation'
+    });
+  }
+
+  const criticalCount = recommendations.filter(r => r.severity === 'critical').length;
+  if (criticalCount === 0) {
+    recommendations.push({
+      id: 100,
+      icon: '✅',
+      title: 'Overall Status',
+      recommendation: 'All conditions are optimal',
+      severity: 'optimal',
+      description: 'Your farm conditions are excellent for crop growth.',
+      action: 'Continue current practices'
+    });
+  } else if (criticalCount >= 2) {
+    recommendations.unshift({
+      id: 0,
+      icon: '⚠️',
+      title: 'Urgent Action Required',
+      recommendation: 'Multiple critical conditions detected',
+      severity: 'critical',
+      description: `${criticalCount} critical conditions need immediate attention.`,
+      action: 'Follow recommendations below'
+    });
+  }
+
+  return recommendations;
 }
 
 module.exports = router;
