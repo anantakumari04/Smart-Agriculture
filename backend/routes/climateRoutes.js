@@ -165,8 +165,7 @@ Return only JSON. Do not include any explanation outside the JSON array.`;
         },
         {
           headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${process.env.GEMINI_API_KEY}`
+            'Content-Type': 'application/json'
           }
         }
       );
